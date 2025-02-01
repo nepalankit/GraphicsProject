@@ -1,12 +1,20 @@
-# Enhanced Water Ripple Simulation
-# Controls:
-# - Mouse Left-Click: Add a water ripple at the clicked position.
-# - Spacebar (' '): Pause or resume the simulation.
-# - 'r': Toggle rain mode on/off.
-# - Up Arrow: Increase wave speed.
-# - Down Arrow: Decrease wave speed.
-# - Right Arrow: Increase rain intensity.
-# - Left Arrow: Decrease rain intensity.
+"""
+Enhanced Water Ripple Simulation
+
+Keyboard Controls:
+- Space (' '): Toggle pause/play
+- 'r': Toggle rain mode
+- 'c': Clear/reset the simulation
+
+Special Key Controls:
+- UP Arrow: Increase wave speed
+- DOWN Arrow: Decrease wave speed
+- RIGHT Arrow: Increase rain intensity
+- LEFT Arrow: Decrease rain intensity
+
+Mouse Controls:
+- Left Click: Add ripple at cursor position
+"""
 
 import numpy as np  # Numerical library for efficient array computations.
 import random  # For generating random numbers for the rain effect.
@@ -26,53 +34,51 @@ class WaterSimulation:
         self.wave_speed = 0.3  # Speed of wave propagation.
         self.paused = False  # Paused state of the simulation.
         self.rain_mode = False  # Rain mode toggle.
-        self.rain_intensity = 5  # Number of raindrops per frame in rain mode.
+        self.rain_intensity = 3  # Number of raindrops per frame in rain mode.
 
     def add_drop(self, x, y):
-        # Converts screen coordinates to grid indices and adds a ripple.
         grid_x = int(x / self.width * (self.resolution - 1))
         grid_y = int(y / self.height * (self.resolution - 1))
         if 0 <= grid_x < self.resolution and 0 <= grid_y < self.resolution:
             self.current_wave[grid_y, grid_x] += 3.0  # Adds energy to the grid point.
 
     def simulate_rain(self):
-        # Simulates random raindrops when rain mode is active.
-        if not self.rain_mode:
+        if not self.rain_mode or self.paused:
             return
         for _ in range(self.rain_intensity):
-            x = random.uniform(0, self.width)  # Random x-coordinate.
-            y = random.uniform(0, self.height)  # Random y-coordinate.
-            self.add_drop(x, y)  # Adds a drop at the random location.
+            x = random.uniform(0, self.width)
+            y = random.uniform(0, self.height)
+            self.add_drop(x, y)
 
     def update_waves(self):
-        # Updates the wave grid using a numerical ripple algorithm.
-        if self.paused:  # Skip updates if paused.
+        if self.paused:
             return
-        next_wave = np.zeros_like(self.current_wave)  # New wave grid.
+        next_wave = np.zeros_like(self.current_wave)
         for y in range(1, self.resolution - 1):
             for x in range(1, self.resolution - 1):
-                # Compute the average height of neighboring points.
                 neighbors = (
                     self.current_wave[y - 1, x] +
                     self.current_wave[y + 1, x] +
                     self.current_wave[y, x - 1] +
                     self.current_wave[y, x + 1]
                 ) * 0.25
-                # Update the wave height based on the wave equation.
                 next_wave[y, x] = (
                     2 * self.current_wave[y, x] -
                     self.previous_wave[y, x] +
                     self.wave_speed * (neighbors - self.current_wave[y, x])
                 )
-        self.previous_wave = self.current_wave  # Store the current wave as the previous.
-        self.current_wave = next_wave * (1 - self.damping)  # Apply damping.
+        self.previous_wave = self.current_wave
+        self.current_wave = next_wave * (1 - self.damping)
+
+    def reset(self):
+        self.current_wave.fill(0)
+        self.previous_wave.fill(0)
+        self.rain_mode = False
 
 # Display function to render the simulation.
 def display():
-    glClear(GL_COLOR_BUFFER_BIT)  # Clear the screen.
-
-    # Draw the background.
-    glColor3f(0.1, 0.2, 0.4)  # Dark blue color.
+    glClear(GL_COLOR_BUFFER_BIT)
+    glColor3f(0.1, 0.2, 0.4)
     glBegin(GL_QUADS)
     glVertex2f(0, 0)
     glVertex2f(water_sim.width, 0)
@@ -80,76 +86,70 @@ def display():
     glVertex2f(0, water_sim.height)
     glEnd()
 
-    # Draw the waves as points with color gradients.
     glPointSize(3)
     glBegin(GL_POINTS)
     for y in range(water_sim.resolution):
         for x in range(water_sim.resolution):
-            # Convert grid indices to screen coordinates.
             screen_x = x / (water_sim.resolution - 1) * water_sim.width
             screen_y = y / (water_sim.resolution - 1) * water_sim.height
-            wave_height = abs(water_sim.current_wave[y, x])  # Get the wave height.
-            intensity = min(wave_height * 4, 1.0)  # Normalize intensity for color scaling.
-            glColor3f(
-                0.2 + 0.8 * intensity,  # Light blue gradient.
-                0.5 + 0.5 * intensity,  # Aqua tones.
-                0.7 + 0.3 * intensity   # Depth effect.
-            )
-            glVertex2f(screen_x, screen_y)  # Render the point.
+            wave_height = abs(water_sim.current_wave[y, x])
+            intensity = min(wave_height * 4, 1.0)
+            glColor3f(0.2 + 0.8 * intensity, 0.5 + 0.5 * intensity, 0.7 + 0.3 * intensity)
+            glVertex2f(screen_x, screen_y)
     glEnd()
 
-    water_sim.update_waves()  # Update the wave simulation.
-    water_sim.simulate_rain()  # Add raindrops if rain mode is active.
-    glutSwapBuffers()  # Swap the front and back buffers.
+    water_sim.update_waves()
+    water_sim.simulate_rain()
+    glutSwapBuffers()
 
 # Handles mouse clicks for adding ripples.
 def mouse_click(button, state, x, y):
     if button == GLUT_LEFT_BUTTON and state == GLUT_DOWN:
-        water_sim.add_drop(x, water_sim.height - y)  # Add drop at the clicked position.
+        water_sim.add_drop(x, water_sim.height - y)
 
 # Handles keyboard inputs for toggling features.
 def keyboard(key, x, y):
     global water_sim
     if key == b' ':
-        water_sim.paused = not water_sim.paused  # Toggle pause.
+        water_sim.paused = not water_sim.paused
     elif key == b'r':
-        water_sim.rain_mode = not water_sim.rain_mode  # Toggle rain mode.
+        water_sim.rain_mode = not water_sim.rain_mode
+    elif key == b'c':
+        water_sim.reset()
 
 # Handles special keys for adjusting parameters.
 def special_keys(key, x, y):
     global water_sim
     if key == GLUT_KEY_UP:
-        water_sim.wave_speed = min(water_sim.wave_speed + 0.05, 1.0)  # Increase wave speed.
+        water_sim.wave_speed = min(water_sim.wave_speed + 0.05, 1.0)
     elif key == GLUT_KEY_DOWN:
-        water_sim.wave_speed = max(water_sim.wave_speed - 0.05, 0.05)  # Decrease wave speed.
+        water_sim.wave_speed = max(water_sim.wave_speed - 0.05, 0.05)
     elif key == GLUT_KEY_RIGHT:
-        water_sim.rain_intensity = min(water_sim.rain_intensity + 1, 20)  # Increase rain intensity.
+        water_sim.rain_intensity = min(water_sim.rain_intensity + 1, 10)
     elif key == GLUT_KEY_LEFT:
-        water_sim.rain_intensity = max(water_sim.rain_intensity - 1, 1)  # Decrease rain intensity.
+        water_sim.rain_intensity = max(water_sim.rain_intensity - 1, 1)
 
 # Main function to initialize the simulation.
 def main():
     global water_sim
 
-    glutInit()  # Initialize GLUT.
-    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB)  # Set up a double-buffered RGB window.
-    glutInitWindowSize(800, 600)  # Set the window size.
-    glutCreateWindow(b"Enhanced Water Ripple Simulation")  # Create the window with a title.
+    glutInit()
+    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB)
+    glutInitWindowSize(800, 600)
+    glutCreateWindow(b"Enhanced Water Ripple Simulation")
 
-    glClearColor(0.0, 0.0, 0.0, 0.0)  # Set the background clear color.
-    gluOrtho2D(0, 800, 0, 600)  # Set up a 2D orthographic projection.
+    glClearColor(0.0, 0.0, 0.0, 0.0)
+    gluOrtho2D(0, 800, 0, 600)
 
-    water_sim = WaterSimulation()  # Create the water simulation instance.
+    water_sim = WaterSimulation()
 
-    # Register GLUT callback functions.
     glutDisplayFunc(display)
     glutIdleFunc(display)
     glutMouseFunc(mouse_click)
     glutKeyboardFunc(keyboard)
     glutSpecialFunc(special_keys)
 
-    glutMainLoop()  # Enter the GLUT main loop.
+    glutMainLoop()
 
-# Run the program.
 if __name__ == "__main__":
     main()
